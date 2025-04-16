@@ -80,5 +80,5 @@ Request payload
 Webhook endpoint
 
 ```text
-[POST] {{API_HOST]]/api/v1/webhook/{{API_KEY}}
+[POST] {{API_HOST}}/api/v1/webhook/{{API_KEY}}
 ```
