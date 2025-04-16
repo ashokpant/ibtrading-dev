@@ -1,0 +1,17 @@
+fastapi==0.109.0
+uvicorn==0.24.0
+pydantic==2.6.0
+requests==2.32.0
+python-dotenv==1.0.0
+pytest==8.0.0
+httpx==0.27.0
+pyngrok==5.1.0
+ibapi
+vnpy_ib
+pyjwt
+passlib
+bcrypt
+dataclasses-json
+tzlocal
+python-multipart
+ib_async
