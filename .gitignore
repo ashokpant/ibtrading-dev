@@ -84,3 +84,9 @@ output/
 *.pkl
 tradersml/models
 .env
+
+# Database
+*.sqlite3
+*.db
+*.db.*
+/venv
