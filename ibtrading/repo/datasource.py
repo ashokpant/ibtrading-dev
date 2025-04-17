@@ -153,3 +153,7 @@ class Repo:
         self.db = db
         self.logger = loggerutil.get_logger(self.__class__.__name__)
         self.tz = Settings.TIMEZONE
+
+# Create global instance and session factory
+data_source = DataSource()
+SessionLocal = data_source.get_session

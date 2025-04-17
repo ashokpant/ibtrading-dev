@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 import bcrypt
+from ibtrading.repo.datasource import SessionLocal
+from sqlalchemy.orm import Session as DBSession
 import jwt
 
 from ibtrading.domain import User, LogoutResponse, LoginResponse, ErrorCode
@@ -14,6 +16,8 @@ from ibtrading.domain.auth import Session, AuthResponse
 from ibtrading.domain.user import UserWithPassword
 from ibtrading.utils import loggerutil
 from ibtrading.utils.singleton import Singleton
+from ibtrading.repo.user_repo import UserRepository
+from ibtrading.service.user_service import UserService
 
 JWT_SECRET_KEY = "secret@543"
 JWT_ALGORITHM = "HS256"
@@ -56,31 +60,36 @@ class AuthService(metaclass=Singleton):
     def __init__(self):
         if AuthService._instance is not None:
             return
-        self.users = {}
-        self.users["admin"] = UserWithPassword(
-            user=User(username="admin", full_name="Admin", role="admin", active=True),
-            hashed_password=self.hash_password("Admin@321"))
-        self.users["ashok"] = UserWithPassword(
-            user=User(username="ashok", full_name="Ashok Pant", role="admin", active=True),
-            hashed_password=self.hash_password("Ashok@321"))
-        self.users["test"] = UserWithPassword(
-            user=User(username="test", full_name="Test User", role="user", active=True),
-            hashed_password=self.hash_password("Test@321"))
-
+        self.db: DBSession = SessionLocal()
+        self.user_service = UserService(UserRepository(self.db))
+        # Seeding default users for testing
+        self.seed()
         self.api_keys = {"APIKEY123": {"role": "admin"}, "APIKEY456": {"role": "admin"}}
         self.session_store = SessionStore()
 
+    def seed(self):
+        # Seed default users if not present
+        if self.user_service.get_user("admin") is None:
+            self.user_service.create_user("admin", "Admin", "admin", self.hash_password("Admin@321"))
+        if self.user_service.get_user("ashok") is None:
+            self.user_service.create_user("ashok", "Ashok Pant", "admin", self.hash_password("Ashok@321"))
+        if self.user_service.get_user("test") is None:
+            self.user_service.create_user("test", "Test User", "user", self.hash_password("Test@321"))
+            
     def get_user(self, username: str) -> Optional[User]:
-        uwp = self.users.get(username, None)
-        if uwp is None:
+        user_model = self.user_service.get_user(username)
+        if not user_model:
             return None
-        return uwp.user
+        return User(
+            username=user_model.username,
+            full_name=user_model.full_name,
+            role=user_model.role,
+            active=user_model.active
+        )
 
     def _get_password(self, username: str):
-        uwp = self.users.get(username, None)
-        if uwp is None:
-            return None
-        return uwp.hashed_password
+        user_model = self.user_service.get_user(username)
+        return user_model.hashed_password if user_model else None
 
     def get_api_key(self, api_key: str):
         return self.api_keys.get(api_key, None)
@@ -110,11 +119,11 @@ class AuthService(metaclass=Singleton):
         pwd_bytes = password.encode('utf-8')
         salt = bcrypt.gensalt()
         hashed_password = bcrypt.hashpw(password=pwd_bytes, salt=salt)
-        return hashed_password
+        return hashed_password.decode('utf-8')
 
     def verify_password(self, plain_password, hashed_password):
         password_byte_enc = plain_password.encode('utf-8')
-        return bcrypt.checkpw(password=password_byte_enc, hashed_password=hashed_password)
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
     def _decode_jwt(self, token):
         try:
